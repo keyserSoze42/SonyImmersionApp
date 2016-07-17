@@ -1,6 +1,8 @@
 package keysersoze.com.sonycameraimmersion;
 
 import com.google.android.glass.media.Sounds;
+import com.google.android.glass.touchpad.Gesture;
+import com.google.android.glass.touchpad.GestureDetector;
 import com.google.android.glass.widget.CardBuilder;
 import com.google.android.glass.widget.CardScrollAdapter;
 import com.google.android.glass.widget.CardScrollView;
@@ -17,6 +19,7 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
@@ -57,7 +60,7 @@ public class MainActivity extends Activity {
     private SimpleStreamSurfaceView liveViewFinder;
     private Slider mSlider;
     private Slider.Indeterminate mIndeterminate;
-
+    private GestureDetector mGestureDetector;
     private String TAG = MainActivity.class.getSimpleName();
 
     @Override
@@ -68,6 +71,7 @@ public class MainActivity extends Activity {
         ssdpClient = new SimpleSsdpClient();
         liveViewFinder = (SimpleStreamSurfaceView) findViewById(R.id.liveViewFinder);
         ssdpClient.search(searchResultHandler);
+        mGestureDetector = createGestureDetector(this);
     }
 
     SimpleSsdpClient.SearchResultHandler searchResultHandler = new SimpleSsdpClient.SearchResultHandler() {
@@ -88,6 +92,64 @@ public class MainActivity extends Activity {
 
         }
     };
+
+    private GestureDetector createGestureDetector(Context context) {
+        GestureDetector gestureDetector = new GestureDetector(context);
+        //Create a base listener for generic gestures
+        gestureDetector.setBaseListener( new GestureDetector.BaseListener() {
+            @Override
+            public boolean onGesture(Gesture gesture) {
+                if (gesture == Gesture.TAP) {
+                    new Thread(){
+                        @Override
+                        public void run() {
+                            try {
+                                mRemoteApi.actHalfPressShutter();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }.start();
+                    return true;
+                } else if (gesture == Gesture.TWO_TAP) {
+                    // do something on two finger tap
+                    return true;
+                } else if (gesture == Gesture.SWIPE_RIGHT) {
+                    // do something on right (forward) swipe
+                    return true;
+                } else if (gesture == Gesture.SWIPE_LEFT) {
+                    // do something on left (backwards) swipe
+                    return true;
+                }
+                return false;
+            }
+        });
+        gestureDetector.setFingerListener(new GestureDetector.FingerListener() {
+            @Override
+            public void onFingerCountChanged(int previousCount, int currentCount) {
+                // do something on finger count changes
+            }
+        });
+        gestureDetector.setScrollListener(new GestureDetector.ScrollListener() {
+            @Override
+            public boolean onScroll(float displacement, float delta, float velocity) {
+                // do something on scrolling
+                return true;
+            }
+        });
+        return gestureDetector;
+    }
+
+    /*
+     * Send generic motion events to the gesture detector
+     */
+    @Override
+    public boolean onGenericMotionEvent(MotionEvent event) {
+        if (mGestureDetector != null) {
+            return mGestureDetector.onMotionEvent(event);
+        }
+        return false;
+    }
 
     @Override
     protected void onResume() {
@@ -141,7 +203,6 @@ public class MainActivity extends Activity {
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event){
         if(keyCode == KeyEvent.KEYCODE_CAMERA) {
-
                 new Thread(){
                     @Override
                     public void run() {
