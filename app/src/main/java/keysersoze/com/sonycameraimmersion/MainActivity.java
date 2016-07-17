@@ -4,14 +4,27 @@ import com.google.android.glass.media.Sounds;
 import com.google.android.glass.widget.CardBuilder;
 import com.google.android.glass.widget.CardScrollAdapter;
 import com.google.android.glass.widget.CardScrollView;
+import com.keysersoze.sonyandroidlib.CameraConnectionController;
+import com.keysersoze.sonyandroidlib.CameraSettingsController;
+import com.keysersoze.sonyandroidlib.IsSupportedUtil;
+import com.keysersoze.sonyandroidlib.SimpleStreamSurfaceView;
+import com.keysersoze.sonyandroidlib.ViewFinderLayout;
 
 import android.app.Activity;
 import android.content.Context;
 import android.media.AudioManager;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
+
+import java.io.IOException;
+
+import sony.sdk.cameraremote.ServerDevice;
+import sony.sdk.cameraremote.SimpleRemoteApi;
+import sony.sdk.cameraremote.SimpleSsdpClient;
 
 /**
  * An {@link Activity} showing a tuggable "Hello World!" card.
@@ -35,13 +48,20 @@ public class MainActivity extends Activity {
      */
     private View mView;
 
+    private CameraConnectionController cameraConnectionController;
+    private SimpleSsdpClient ssdpClient;
+    private static SimpleRemoteApi mRemoteApi;
+    private SimpleStreamSurfaceView liveViewFinder;
+
+    private String TAG = MainActivity.class.getSimpleName();
+
     @Override
     protected void onCreate(Bundle bundle) {
         super.onCreate(bundle);
 
-        mView = buildView();
+        //mView = buildView();
 
-        mCardScroller = new CardScrollView(this);
+        /*mCardScroller = new CardScrollView(this);
         mCardScroller.setAdapter(new CardScrollAdapter() {
             @Override
             public int getCount() {
@@ -74,30 +94,104 @@ public class MainActivity extends Activity {
                 AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
                 am.playSoundEffect(Sounds.DISALLOWED);
             }
-        });
-        setContentView(mCardScroller);
+        });*/
+        setContentView(R.layout.view_finder_layout);
+        ssdpClient = new SimpleSsdpClient();
+        liveViewFinder = (SimpleStreamSurfaceView) findViewById(R.id.liveViewFinder);
+        ssdpClient.search(searchResultHandler);
     }
+
+    SimpleSsdpClient.SearchResultHandler searchResultHandler = new SimpleSsdpClient.SearchResultHandler() {
+        @Override
+        public void onDeviceFound(ServerDevice serverDevice) {
+            mRemoteApi = SimpleRemoteApi.getInstance();
+            mRemoteApi.init(serverDevice);
+            cameraConnectionController.onDeviceFound(serverDevice);
+        }
+
+        @Override
+        public void onFinished() {
+            CameraConnectionController.openConnection();
+        }
+
+        @Override
+        public void onErrorFinished() {
+
+        }
+    };
 
     @Override
     protected void onResume() {
         super.onResume();
-        mCardScroller.activate();
+        CameraConnectionController.CameraConnectionHandler cameraConnectionHandler = new CameraConnectionController.CameraConnectionHandler() {
+            @Override
+            public void onCameraConnected() {
+                // Liveview start
+                if (IsSupportedUtil.isCameraApiAvailable("startLiveview", cameraConnectionController.getApiSet())) {
+                    Log.d(TAG, "openConnection(): LiveviewSurface.start()");
+                    String liveViewUrl = cameraConnectionController.startLiveview();
+
+                    liveViewFinder.start(liveViewUrl, //
+                        new ViewFinderLayout.StreamErrorListener() {
+
+                            @Override
+                            public void onError(StreamErrorReason reason) {
+                                cameraConnectionController.stopLiveview();
+                            }
+                        });
+                }
+            }
+
+            @Override
+            public void onCameraReady() {
+
+            }
+        };
+        cameraConnectionController = new CameraConnectionController(this, cameraConnectionHandler);
+        //mCardScroller.activate();
     }
 
     @Override
     protected void onPause() {
-        mCardScroller.deactivate();
+        //mCardScroller.deactivate();
+        if (liveViewFinder != null) {
+            liveViewFinder.stop();
+            liveViewFinder = null;
+            cameraConnectionController.stopLiveview();
+            cameraConnectionController = null;
+        }
         super.onPause();
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event){
+        if(keyCode == KeyEvent.KEYCODE_CAMERA) {
+
+                new Thread(){
+                    @Override
+                    public void run() {
+                        try {
+                            mRemoteApi.actTakePicture();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }.start();
+            return true;
+        }else {
+            return super.onKeyDown(keyCode, event);
+        }
+
     }
 
     /**
      * Builds a Glass styled "Hello World!" view using the {@link CardBuilder} class.
      */
-    private View buildView() {
-        CardBuilder card = new CardBuilder(this, CardBuilder.Layout.TEXT);
+/*    private View buildView() {
+        CardBuilder card = new CardBuilder(this, CardBuilder.Layout.EMBED_INSIDE);
 
-        card.setText(R.string.hello_world);
+        //card.setText(R.string.hello_world);
         return card.getView();
-    }
+    }*/
 
 }
