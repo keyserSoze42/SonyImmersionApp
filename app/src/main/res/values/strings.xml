@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">SonyCameraImmersion</string>
+    <string name="title_activity_main">Sony Camera Immersion</string>
+    <string name="hello_world">Hello world!</string>
+</resources>
