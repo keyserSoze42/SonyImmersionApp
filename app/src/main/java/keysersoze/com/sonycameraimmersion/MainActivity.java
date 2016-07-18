@@ -8,7 +8,6 @@ import com.google.android.glass.widget.CardScrollAdapter;
 import com.google.android.glass.widget.CardScrollView;
 import com.google.android.glass.widget.Slider;
 import com.keysersoze.sonyandroidlib.CameraConnectionController;
-import com.keysersoze.sonyandroidlib.CameraSettingsController;
 import com.keysersoze.sonyandroidlib.IsSupportedUtil;
 import com.keysersoze.sonyandroidlib.SimpleStreamSurfaceView;
 import com.keysersoze.sonyandroidlib.ViewFinderLayout;
@@ -167,7 +166,6 @@ public class MainActivity extends Activity {
                 if (IsSupportedUtil.isCameraApiAvailable("startLiveview", cameraConnectionController.getApiSet())) {
                     Log.d(TAG, "openConnection(): LiveviewSurface.start()");
                     String liveViewUrl = cameraConnectionController.startLiveview();
-
                     liveViewFinder.start(liveViewUrl, //
                         new ViewFinderLayout.StreamErrorListener() {
 
@@ -200,6 +198,8 @@ public class MainActivity extends Activity {
         super.onPause();
     }
 
+    private boolean shooting = false;
+
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event){
         if(keyCode == KeyEvent.KEYCODE_CAMERA) {
@@ -208,6 +208,15 @@ public class MainActivity extends Activity {
                     public void run() {
                         try {
                             mRemoteApi.actTakePicture();
+                            /*mRemoteApi.setShutterSpeed("BULB");
+                            if(shooting){
+                                shooting = false;
+                                mRemoteApi.stopBulbShooting();    
+                            }else {
+                                shooting = true;
+                                mRemoteApi.startBulbShooting();
+                            }  */ 
+                            
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
@@ -217,6 +226,5 @@ public class MainActivity extends Activity {
         }else {
             return super.onKeyDown(keyCode, event);
         }
-
     }
 }
